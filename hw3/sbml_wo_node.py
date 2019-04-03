@@ -1,4 +1,7 @@
-#Ying Zhang   110864972
+#Ying Zhang
+#A less modular version of sbml created without using the Node class
+#First benchmark: allows simple expression evaluation and operations.
+#Changes will be discontinued for this version, checkout other sbml.py file
 import sys
 import math
 tokens = (
@@ -385,16 +388,6 @@ def p_comma_sep_elements(t):
     else:
         t[0] = t[1] + [t[3]]
 
-# #recursively define
-# def p_comma_sep_tup(t):
-#     '''tup : tup COMMA expression
-#                 | expression
-#         '''
-#     if len(t) == 2:
-#         t[0] = (t[1],)
-#     else:
-#         t[0] = t[1] + (t[3],)
-
 def p_tuple(t):
     '''tuple : LPAREN elements RPAREN
             | LPAREN RPAREN'''
@@ -450,20 +443,6 @@ def p_index_list(t):
         t[0] = t[1][index]
 
         #index is currently not in brackets, but list is
-
-# def p_index_tup(t):
-#     'expression : INDEX expression tuple'
-#     try:
-#         index = int(t[2])
-#     except:
-#         print("SEMANTIC ERROR")
-#         raise ValueError
-#
-#     if(index>len(t[3]) or index<1):
-#         print("SEMANTIC ERROR")
-#         raise ValueError
-#     else:
-#         t[0] = t[3][index-1]  #index starts at 1 in sbml, but 0 in python, adjusted
 
 #i(tuple)
 def p_index_tuple(t):
