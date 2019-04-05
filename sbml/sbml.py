@@ -303,7 +303,7 @@ def p_statement_expr(t):
 
 
 def match_int(t):
-    if (type(t[1].evaluate()) == int and type(t[3].evaluate()) == int):
+    if (strictly_int(t[1]) and strictly_int(t[3])):
         return True
     else:
         return False
@@ -319,9 +319,9 @@ def match_nums(t):
         return True
     elif(match_float(t)):
         return True
-    elif (type(t[1].evaluate())==float and type(t[3].evaluate())==int):
+    elif (type(t[1].evaluate())==float and strictly_int(t[3])):
         return True
-    elif (type(t[1].evaluate())==int and type(t[3].evaluate())==float):
+    elif (strictly_int(t[1]) and type(t[3].evaluate())==float):
         return True
     else:
         return False
@@ -343,7 +343,7 @@ def p_expression_binop(t):
                   | expression DIVIDE expression
                   | expression TIMES expression'''
 
-    if (type_match(t) == False or type(t[1].evaluate()) == tuple):  # does not support tuple addition
+    if (type_match(t) == False or type(t[1].evaluate()) == tuple or type(t[1].evaluate())==bool):  # does not support tuple addition
         raise SemanticError
     if t[2] == '+': #supports strings, and lists
         t[0] = BopNode(t[2],t[1],t[3])
@@ -387,8 +387,8 @@ def p_expression_not(t):
 def p_expression_bool(t):
     '''expression : expression AND expression
                   | expression OR expression'''
-
-    if(not (type_match(t) or isinstance(t[1],bool)) ):
+    #supported only for booleans
+    if(not (type_match(t) and isinstance(t[1].evaluate(),bool) ) ):
         raise SemanticError
     else:
         t[0] = AndORNode(t[2], t[1], t[3])
@@ -402,7 +402,7 @@ def p_expression_compare(t):
                 | expression NEQUALS expression'''
     if(not type_match(t)):
         raise SemanticError
-    elif(type(t[1].evaluate())==list or type(t[1].evaluate())==tuple):
+    elif(type(t[1].evaluate())==list or type(t[1].evaluate())==tuple or type(t[1].evaluate())==bool):
         raise SemanticError
     else:
         t[0] = CompareopNode(t[2],t[1],t[3])
@@ -457,7 +457,7 @@ def p_concat(t):
 
 def p_index_list(t):
     'expression : expression LBRACKET expression RBRACKET'
-    if(not ( (type(t[1].evaluate())==list or type(t[1].evaluate())==str) and type(t[3].evaluate())==int ) ):   #list is an expression, the general form
+    if(not ( (type(t[1].evaluate())==list or type(t[1].evaluate())==str) and strictly_int(t[3]) ) ):   #list is an expression, the general form
 
         raise SemanticError
     try:
@@ -473,11 +473,15 @@ def p_index_list(t):
         t[0] = IndexNode(t[1],t[3],0)
 
         #index is currently not in brackets, but list is
-
+def strictly_int(val):
+    if isinstance(val.evaluate(), int) and not isinstance(val.evaluate(),bool):
+        return True
+    else:
+        return False
 #i(tuple)
 def p_index_tuple(t):
     'expression : INDEX expression expression'
-    if(not (isinstance(t[3].evaluate(),tuple) and isinstance(t[2].evaluate(),int))):
+    if(not (isinstance(t[3].evaluate(),tuple) and strictly_int(t[2]) ) ):
         raise SemanticError
     try:
         index = int(t[2].evaluate())
