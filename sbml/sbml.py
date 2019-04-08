@@ -3,6 +3,7 @@
 class SemanticError(Exception):
     pass
 
+names = {}
 class Node:
     def __init__(self):
         print("init node")
@@ -36,6 +37,7 @@ class StringNode(Node):
     # def execute(self):
     #     return "'"+self.value+"'"
 
+
 class TupleNode(Node):
     def __init__(self, v):
         self.value = v
@@ -66,6 +68,13 @@ class NumberNode(Node):
         return self.value
     # def execute(self):
     #     return self.value
+class NameNode(Node):
+    def __init__(self, name):
+        self.name = name
+        print(self.name)
+
+    def evaluate(self):
+        return names[self.name]
 
 #below are operations that can be done to nodes
 class PrintNode(Node):
@@ -73,13 +82,23 @@ class PrintNode(Node):
         self.v = v.evaluate()
 
     def evaluate(self):
-        if (isinstance(self.v, str)):
-            print("'" + self.v + "'")
-        else:
-            print(self.v)
+        # if (isinstance(self.v, str)):
+        #     print("'" + self.v + "'")
+        # else:
+        print(self.v)
+        #we will no longer differentiate between strings and numbers
 
     def execute(self):
         self.evaluate()
+
+class AssignNode(Node):
+    def __init__(self,name,expression):
+        self.name = name.evaluate()
+        self.expression = expression.evaluate()
+        names[self.name] = self.expression
+
+    def evaluate(self):
+        return names[self.name]
 
 class UminusNumberNode(Node):
     def __init__(self, v):
@@ -166,9 +185,11 @@ class InNode(Node):
         self.v1 = v1.evaluate()
         self.v2 = v2.evaluate()
         self.op = op
+        self.answer = False
+    def exec(self):
+        self.answer = self.v1 in self.v2
     def evaluate(self):
-        if (self.op == 'in'):
-            return self.v1 in self.v2
+        return self.answer
 
 class IndexNode(Node):
     def __init__(self, list, index,startWith1):
@@ -191,15 +212,34 @@ class ConcatNode(Node):
         #insert head at the beginning of list
 
 
+reserved = {
+    # 'if' : 'IF',
+    # 'then' : 'THEN',
+    # 'else' : 'ELSE',
+    # 'while' : 'WHILE',
+    'in' : 'IN',
+    'andalso' : 'AND',
+    'orelse' : 'OR',
+    'div' : 'INTDIV',
+    'mod' : "MOD",
+    'not' : 'NOT',
+    'True|False' : 'BOOLEAN',
+    'print' : 'PRINT'
+}
 
-tokens = (
-    'NUMBER','STRING',
+tokens = [
+    'NUMBER','STRING','NAME',
     'LBRACKET','RBRACKET','COMMA',
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'EQUALS','NEQUALS','POW',
-    'LPAREN', 'RPAREN','AND','OR','NOT','IN',
+    'LPAREN', 'RPAREN',
+    # 'AND', 'OR','NOT','IN',
     'SMALLER','GREATER','SMALLEREQU','GREATEREQU',
-    'MOD','INTDIV','CONCAT','INDEX','BOOLEAN','SEMICOLON',
-)#EQUAL taken out, NAME taken out
+    # 'MOD','INTDIV','BOOLEAN'
+    'CONCAT','INDEX','SEMICOLON','EQUAL',
+
+]+list(reserved.values())#EQUAL taken out, NAME taken out
+
+
 
 t_ignore = " \t"
 t_LBRACKET = '\['
@@ -218,7 +258,7 @@ t_SMALLER = r'<'
 t_GREATER = r'>'
 t_SMALLEREQU = r'<='
 t_GREATEREQU = r'>='
-#t_EQUAL = r'='
+t_EQUAL = r'='
 t_CONCAT = r'::'
 t_INDEX = r'[#]'
 t_SEMICOLON = r';'
@@ -234,44 +274,50 @@ def t_NUMBER(t):
         t.value = 0
     return t
 
+def t_BOOLEAN(t):
+    r'(True|False)'
+    t.value = BooleanNode(t.value)
+    return t
 #single or double quote surrouding plus match any set of escape characters
+
+def t_NAME(t):
+    r'[a-zA-Z_][a-zA-Z_0-9]*'
+    t.type = reserved.get(t.value, 'NAME')  # Check for reserved words
+    if t.type == 'NAME':
+        t.value = NameNode(t)
+    return t
+#
+# def t_IN(t):
+#     r'in'
+#     return t
+#
+# def t_AND(t):
+#     r'andalso'
+#     return t
+#
+# def t_OR(t):
+#     r'orelse'
+#     return t
+#
+# def t_NOT(t):
+#     r'not'
+#     return t
+#
+# def t_MOD(t):
+#     r'mod'
+#     return t
+#
+# def t_INTDIV(t):
+#     r'div'
+#     return t
+
 def t_STRING(t):
     r'\"(\\\"|\\\'|\\\t|\\\\|\\n|[^\\\"])*\"|\'(\\\"|\\\\|\\\'|\\\t|\\n|[^\\\'])*\''
     t.value = StringNode(t.value)  #value without surrounding quotes
     return t
 
-def t_BOOLEAN(t):
-    r'(True|False)'
-    t.value = BooleanNode(t.value)
-    return t
-
-def t_IN(t):
-    r'in'
-    return t
-
-def t_AND(t):
-    r'andalso'
-    return t
-
-def t_OR(t):
-    r'orelse'
-    return t
-
-def t_NOT(t):
-    r'not'
-    return t
-
-def t_MOD(t):
-    r'mod'
-    return t
-
-def t_INTDIV(t):
-    r'div'
-    return t
-
 def t_error(t):
     raise SyntaxError
-
 
 
 # Build the lexer
@@ -280,25 +326,43 @@ import ply.lex as lex
 lex.lex()
 
 # Parsing rules
+
 precedence = (
 
     ('left','OR'),
     ('left','AND'),
     ('right','NOT'),
+    ('left','EQUAL'),
     ('left', 'GREATER', 'GREATEREQU','SMALLER', 'SMALLEREQU','EQUALS','NEQUALS'),
     ('right', 'CONCAT'),
     ('left','IN'),
     ('left', 'PLUS', 'MINUS'),
     ('left', 'TIMES', 'DIVIDE','MOD','INTDIV'),
+    ('right','UMINUS'),
     ('right','POW'),
     ('nonassoc','LBRACKET','RBRACKET'),
     ('left','INDEX'),
-    ('nonassoc','UMINUS'),
 )
 
+
+def p_name_expr(t):
+    'expression : NAME'
+    t[0] = t[1]
+
+def p_statement_assign(t):
+    'expression : NAME EQUAL expression'
+    print("name assignment")
+    t[0] = AssignNode(t[1],t[3])
+
 def p_statement_expr(t):
-    'statement : expression SEMICOLON'
-    t[0] = PrintNode(t[1])
+    '''statement : PRINT LPAREN expression RPAREN SEMICOLON
+                | PRINT LPAREN RPAREN SEMICOLON'''
+    print("printing")
+    if len(t)>5:
+        t[0] = PrintNode(t[1])
+    else:
+        t[0] = PrintNode(StringNode(""))#print an empty line
+    t[0].execute()
     #print node returns nothing
 
 
@@ -369,10 +433,13 @@ def p_expression_group(t):
 
 def p_expression_in(t):
     '''expression : expression IN expression'''
+    # print(t[1].evaluate()," in ",t[3].evaluate())
     if(type(t[3].evaluate())==list):
         t[0] = InNode(t[2],t[1],t[3])
+        t[0].exec()
     elif (type(t[3].evaluate())==str and type(t[1].evaluate())==str):
         t[0] = InNode(t[2],t[1],t[3])
+        t[0].exec()
     else:
         raise SemanticError
 
@@ -409,7 +476,7 @@ def p_expression_compare(t):
 
 def p_expression_uminus(t):
     'expression : MINUS expression %prec UMINUS'
-    # if(isinstance(t[2].evaluate(),int) or isinstance(t[2].evaluate(),float)):
+
     t[0] = UminusNumberNode(t[2])
     t[0].uminus()
 
@@ -535,18 +602,18 @@ fd = open(sys.argv[1], 'r')
 # except:
 #     pass
 
-# lex.input(code)
 for line in fd:
     code = line.strip()
-    if not code:
-        continue
+    # if not code:
+    #     continue
+    # lex.input(code)
     # token = lex.token()
     # if not token: break
-        #print(token)
+    # print(token)
     try:
         ast = yacc.parse(code)
-        ast.execute()
-
+        # ast.execute()
+        #don't always print
     except SemanticError:
         print("SEMANTIC ERROR")
     except SyntaxError:
