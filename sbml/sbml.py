@@ -24,8 +24,8 @@ class BooleanNode(Node):
     def evaluate(self):
         return self.value
 
-    # def execute(self):
-    #     return str(self.value).lower()
+    def execute(self):
+        return self.evaluate()
 
 class StringNode(Node):
     def __init__(self, v):
@@ -34,8 +34,8 @@ class StringNode(Node):
     def evaluate(self):
         return self.value
 
-    # def execute(self):
-    #     return "'"+self.value+"'"
+    def execute(self):
+        return self.evaluate()
 
 
 class TupleNode(Node):
@@ -44,6 +44,8 @@ class TupleNode(Node):
 
     def evaluate(self):
         return self.value
+    def execute(self):
+        return self.evaluate()
 
 class ListNode(Node):
     def __init__(self, v):
@@ -51,7 +53,8 @@ class ListNode(Node):
 
     def evaluate(self):
         return self.value
-
+    def execute(self):
+        return self.evaluate()
 
 class NumberNode(Node):
     def __init__(self, v):
@@ -66,8 +69,10 @@ class NumberNode(Node):
 
     def evaluate(self):
         return self.value
-    # def execute(self):
-    #     return self.value
+
+    def execute(self):
+        return self.evaluate()
+
 class NameNode(Node):
     def __init__(self, name):
         self.name = name
@@ -76,7 +81,11 @@ class NameNode(Node):
         if self.name in names:
             return names[self.name]
         else:
+            print("name not found")
             raise SemanticError
+
+    def execute(self):
+        return self.evaluate()
 
 
 #below are operations that can be done to nodes
@@ -92,6 +101,7 @@ class PrintNode(Node):
         #we will no longer differentiate between strings and numbers
 
     def execute(self):
+        # print("in print node")
         self.evaluate()
 
 class AssignNode(Node):
@@ -110,16 +120,38 @@ class AssignNode(Node):
 
 
     def execute(self):
+        # print("assigned ",self.expression," to ",self.key)
         self.evaluate()
 
 class BlockNode(Node):
-    def __init__(self,statements):
-        self.statements = statements
+    def __init__(self,s):
+        self.st = s
 
     #isnt applicable for printing
     def evaluate(self):
-        for statement in self.statements:
+        # print("evaluate block")
+        for statement in self.st:
             statement.execute()
+
+    def execute(self):
+        self.evaluate()
+
+
+class IfNode(Node):
+    def __init__(self,condition,if_statement,else_statement):
+        # print("if statement")
+        self.condition = condition.evaluate()
+        self.if_statement = if_statement
+        self.else_statement = else_statement
+
+    #isnt applicable for printings
+    def evaluate(self):
+        if(self.condition):
+            self.if_statement.evaluate()
+        else:
+            if(self.else_statement!=None):
+                self.else_statement.evaluate()
+
 
     def execute(self):
         self.evaluate()
@@ -149,8 +181,8 @@ class UminusNumberNode(Node):
 
     def evaluate(self):
         return self.value
-    # def execute(self):
-    #     return self.value
+    def execute(self):
+        return self.value
 
 
 class BopNode(Node):
@@ -199,6 +231,8 @@ class CompareopNode(Node):
             return self.v1.evaluate() == self.v2.evaluate()
         elif (self.op == '<>'):
             return not(self.v1.evaluate() == self.v2.evaluate())
+    def execute(self):
+        return self.evaluate()
 
 class NotopNode(Node):
     def __init__(self, v):
@@ -206,6 +240,9 @@ class NotopNode(Node):
 
     def evaluate(self):
         return not(self.v.evaluate())
+
+    def execute(self):
+        return self.evaluate()
 
 class AndORNode(Node):
     def __init__(self, op, v1, v2):
@@ -217,6 +254,8 @@ class AndORNode(Node):
             return self.v1.evaluate() and self.v2.evaluate()
         elif (self.op == 'orelse'):
             return self.v1.evaluate() or self.v2.evaluate()
+    def execute(self):
+        return self.evaluate()
 
 class InNode(Node):
     def __init__(self, op, v1, v2):
@@ -236,6 +275,7 @@ class IndexNode(Node):
 
     def evaluate(self):
         return self.list[self.index]
+
 
 class ConcatNode(Node):
     def __init__(self, hd,tl):
@@ -382,6 +422,7 @@ precedence = (
     ('nonassoc','LBRACKET','RBRACKET'),
     ('left','INDEX'),
 )
+
 def p_statements(t):
     '''statement : assign_statement
     |               print_statement
@@ -390,15 +431,31 @@ def p_statements(t):
     |               scope'''
     t[0] = t[1]
 
+# def p_none(t):
+#     'none : '
+#     t[0] = t[1]
+def p_block(t):
+    '''block : block statement
+            | statement
+
+    '''
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[0] = t[1] + [t[2]]
+
+    # print("found block",t[0])
+
 def p_statement_assign(t):
     'assign_statement : NAME EQUAL expression SEMICOLON'
     #5 = 4 is a syntax error, cant assign to literal in python
+    # print("variable assignment")
     t[0] = AssignNode(names,t[1],t[3],False)
     t[0].evaluate()
 
 def p_list_assign(t):
     'assign_statement : expression LBRACKET expression RBRACKET EQUAL expression SEMICOLON'
-
+    # print("list element assignment")
     if (type(t[1].evaluate())!=list or (not strictly_int(t[3])) ):
         raise SemanticError
     t[0] = AssignNode(t[1], t[3], t[6],True)
@@ -407,50 +464,52 @@ def p_list_assign(t):
 def p_statement_expr(t):
     '''print_statement : PRINT LPAREN expression RPAREN SEMICOLON
                 | PRINT LPAREN RPAREN SEMICOLON'''
+
     if len(t)>5:
         t[0] = PrintNode(t[3])
     else:
         t[0] = PrintNode(StringNode(""))#print an empty line
-
-    t[0].execute()
+    # print("print ",t[3])
+    # t[0].execute()
     #print node returns nothing
 
 def p_scope(t):
     '''scope : LBRACE RBRACE
             | LBRACE block RBRACE'''
-    print("a block")
     if len(t)==3:
-        t[0] = BlockNode()
+        t[0] = BlockNode([])
     else:
-        t[0] = t[3] #a list of statements
+        t[0] = BlockNode(t[2]) #a list of statements
 
-def p_block(t):
-    '''block : statement
-                | statement block
-    '''
 
-    if len(t) == 2:
-        t[0] = [t[1]]
-    else:
-        t[0] = t[1] + [t[3]]
+    # t[0].execute()
 
+
+#LBRACE block RBRACE
 def p_if_statement(t):
-    '''if_statement : IF LPAREN expression RPAREN block SEMICOLON
-                    | IF LPAREN expression RPAREN block ELSE block SEMICOLON'''
+    '''if_statement : IF LPAREN expression RPAREN scope
+                    | IF LPAREN expression RPAREN scope ELSE scope '''
+    # print("if statement")
     condition = t[3].evaluate()
     if(type(condition)!=bool):
         raise SemanticError
-    if(condition):
-        t[0] = t[5]
-    elif(len(t)>6):
-        t[0] = t[7]
+    if(len(t)==6):
+        t[0] = IfNode(t[3],t[5],None)
+    else:
+        t[0] = IfNode(t[3],t[4],t[7])
+
+    # t[0].execute()
+
 def p_while_statement(t):
-    '''while_statement : WHILE LPAREN expression RPAREN block SEMICOLON'''
+    '''while_statement : WHILE LPAREN expression RPAREN scope '''
+    # print("while loop")
     condition = t[3].evaluate()
     if (type(condition) != bool):
         raise SemanticError
     else:
         t[0] = LoopNode(t[3],t[5])
+
+    # t[0].execute()
 
 
 
@@ -674,23 +733,27 @@ code = ""
 for line in fd:
     code += line.strip()
 
+# print(code)
+
 try:
-    lex.input(code)
-    while True:
-        token = lex.token()
-        if not token:
-            break
-        # print(token)
+    # lex.input(code)
+    # while True:
+    #     token = lex.token()
+    #     if not token:
+    #         break
+    #     print(token)
 
     ast = yacc.parse(code)
-    # ast.execute()
+    # print("ast",ast,type(ast))
+    ast.execute()
 
 except SemanticError:
     print("SEMANTIC ERROR")
 except SyntaxError:
     print("SYNTAX ERROR")
-except:
-    pass
+# except:
+#     print("exception")
+#     pass
 
 # for line in fd:
 #     code = line.strip()
