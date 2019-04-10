@@ -43,7 +43,8 @@ class TupleNode(Node):
         self.value = v
 
     def evaluate(self):
-        return self.value
+        return tuple(self.value.evaluate())
+
     def execute(self):
         return self.evaluate()
 
@@ -52,9 +53,22 @@ class ListNode(Node):
         self.value = v
 
     def evaluate(self):
-        return self.value
+        return self.value.evaluate()
+
     def execute(self):
         return self.evaluate()
+
+class ElementNode(Node):
+    def __init__(self, e):
+        self.e = [e] #make a list structure
+
+    def add(self,e):
+        self.e = self.e + [e]
+
+    def evaluate(self):
+        for i in self.e:
+            i = i.evaluate()
+        return self.e
 
 class NumberNode(Node):
     def __init__(self, v):
@@ -81,7 +95,8 @@ class NameNode(Node):
         if self.name in names:
             return names[self.name]
         else:
-            print("name not found")
+            return 0
+            print(self.name," not found")
             raise SemanticError
 
     def execute(self):
@@ -91,13 +106,13 @@ class NameNode(Node):
 #below are operations that can be done to nodes
 class PrintNode(Node):
     def __init__(self, v):
-        self.v = v.evaluate()
+        self.v = v
 
     def evaluate(self):
         # if (isinstance(self.v, str)):
         #     print("'" + self.v + "'")
         # else:
-        print(self.v)
+        print(self.v.evaluate())
         #we will no longer differentiate between strings and numbers
 
     def execute(self):
@@ -106,17 +121,25 @@ class PrintNode(Node):
 
 class AssignNode(Node):
     def __init__(self,List,key,expression,boo):
-        if boo:
+        self.boo = boo
+        if self.boo:
             self.List = List.evaluate()
             self.key = key.evaluate()
         else:
             self.List = names
             self.key = key.name
-        self.expression = expression.evaluate()
+        self.expression = expression
 
     #isnt applicable for printing
     def evaluate(self):
-        self.List[self.key] = self.expression
+        if self.boo:
+            self.List = self.List.evaluate()
+            self.key = self.key.evaluate()
+
+        try:
+            self.List[self.key] = self.expression.evaluate()
+        except:
+            raise SemanticError
 
 
     def execute(self):
@@ -129,7 +152,6 @@ class BlockNode(Node):
 
     #isnt applicable for printing
     def evaluate(self):
-        # print("evaluate block")
         for statement in self.st:
             statement.execute()
 
@@ -140,13 +162,16 @@ class BlockNode(Node):
 class IfNode(Node):
     def __init__(self,condition,if_statement,else_statement):
         # print("if statement")
-        self.condition = condition.evaluate()
+        self.condition = condition
         self.if_statement = if_statement
         self.else_statement = else_statement
 
     #isnt applicable for printings
     def evaluate(self):
-        if(self.condition):
+
+        if (type(self.condition.evaluate()) != bool):
+            raise SemanticError
+        if(self.condition.evaluate()):
             self.if_statement.evaluate()
         else:
             if(self.else_statement!=None):
@@ -158,12 +183,14 @@ class IfNode(Node):
 
 class LoopNode(Node):
     def __init__(self,condition,block):
-        self.condition = condition.evaluate()
+        self.condition = condition
         self.block = block
 
     #isnt applicable for printings
     def evaluate(self):
-        while(self.condition):
+        if (type(self.condition.evaluate()) != bool):
+            raise SemanticError
+        while(self.condition.evaluate()==True):
             self.block.evaluate()
 
 
@@ -172,17 +199,16 @@ class LoopNode(Node):
 
 class UminusNumberNode(Node):
     def __init__(self, v):
-        self.value = v.evaluate()
-    def uminus(self):
+        self.value = v
+
+    def evaluate(self):
         try:
-            self.value = -self.value
+            return -self.value.evaluate()
         except:
             raise SemanticError
 
-    def evaluate(self):
-        return self.value
     def execute(self):
-        return self.value
+        return self.evaluate()
 
 
 class BopNode(Node):
@@ -192,23 +218,33 @@ class BopNode(Node):
         self.op = op
 
     def evaluate(self):
-        if (self.op == '+'):
-            return self.v1.evaluate() + self.v2.evaluate()
-        elif (self.op == '-'):
-            return self.v1.evaluate() - self.v2.evaluate()
-        elif (self.op == '*'):
-            return self.v1.evaluate() * self.v2.evaluate()
-        elif (self.op == 'mod'):
-            return self.v1.evaluate() % self.v2.evaluate()
-        elif(self.op=='**'):
-            return self.v1.evaluate() ** self.v2.evaluate()
-        else:
-            if(self.v2.evaluate()==0):
-                raise SemanticError #div by zero error
-            elif (self.op == '/'):
-                return self.v1.evaluate() / self.v2.evaluate()
-            elif (self.op == 'div'):
-                return self.v1.evaluate() // self.v2.evaluate()
+
+        try:
+            a = self.v1.evaluate()
+            b = self.v2.evaluate()
+            if (not type_match(a, b)):
+                raise SemanticError
+            elif (type(a)==tuple or type(a)==bool):
+                raise SemanticError
+            if (self.op == '+'):
+                return self.v1.evaluate() + self.v2.evaluate()
+            elif (self.op == '-'):
+                return self.v1.evaluate() - self.v2.evaluate()
+            elif (self.op == '*'):
+                return self.v1.evaluate() * self.v2.evaluate()
+            elif (self.op == 'mod'):
+                return self.v1.evaluate() % self.v2.evaluate()
+            elif(self.op=='**'):
+                return self.v1.evaluate() ** self.v2.evaluate()
+            else:
+                if(self.v2.evaluate()==0 or not match_nums(self.v1,self.v2)):
+                    raise SemanticError #div by zero error
+                elif (self.op == '/'):
+                    return self.v1.evaluate() / self.v2.evaluate()
+                elif (self.op == 'div'):
+                    return self.v1.evaluate() // self.v2.evaluate()
+        except:
+            raise SemanticError
 
     def execute(self):
         return self.evaluate()
@@ -219,18 +255,25 @@ class CompareopNode(Node):
         self.v2 = v2
         self.op = op
     def evaluate(self):
-        if (self.op == '>'):
-            return self.v1.evaluate() > self.v2.evaluate()
-        elif (self.op == '<'):
-            return self.v1.evaluate() < self.v2.evaluate()
-        elif (self.op == '>='):
-            return self.v1.evaluate() >= self.v2.evaluate()
-        elif (self.op == '<='):
-            return self.v1.evaluate() <= self.v2.evaluate()
-        elif (self.op == '=='):
-            return self.v1.evaluate() == self.v2.evaluate()
-        elif (self.op == '<>'):
-            return not(self.v1.evaluate() == self.v2.evaluate())
+
+        if (type(self.v1.evaluate()) == list or type(self.v1.evaluate()) == tuple or type(self.v1.evaluate()) == bool):
+            raise SemanticError
+        else:
+            try:
+                if (self.op == '>'):
+                    return self.v1.evaluate() > self.v2.evaluate()
+                elif (self.op == '<'):
+                    return self.v1.evaluate() < self.v2.evaluate()
+                elif (self.op == '>='):
+                    return self.v1.evaluate() >= self.v2.evaluate()
+                elif (self.op == '<='):
+                    return self.v1.evaluate() <= self.v2.evaluate()
+                elif (self.op == '=='):
+                    return self.v1.evaluate() == self.v2.evaluate()
+                elif (self.op == '<>'):
+                    return not(self.v1.evaluate() == self.v2.evaluate())
+            except:
+                raise SemanticError
     def execute(self):
         return self.evaluate()
 
@@ -239,6 +282,8 @@ class NotopNode(Node):
         self.v = v
 
     def evaluate(self):
+        if (not type(self.v.evaluate()) == bool):  # must be boolean types
+            raise SemanticError
         return not(self.v.evaluate())
 
     def execute(self):
@@ -250,43 +295,57 @@ class AndORNode(Node):
         self.v2 = v2
         self.op = op
     def evaluate(self):
+        if (not (type_match(self.v1,self.v2) and isinstance(self.v1.evaluate(), bool))):
+            raise SemanticError
         if (self.op == 'andalso'):
             return self.v1.evaluate() and self.v2.evaluate()
         elif (self.op == 'orelse'):
             return self.v1.evaluate() or self.v2.evaluate()
+
     def execute(self):
         return self.evaluate()
 
 class InNode(Node):
     def __init__(self, op, v1, v2):
-        self.v1 = v1.evaluate()
-        self.v2 = v2.evaluate()
+        self.v1 = v1
+        self.v2 = v2
         self.op = op
-        self.answer = False
-    def exec(self):
-        self.answer = self.v1 in self.v2
+
     def evaluate(self):
-        return self.answer
+        try:
+            return self.v1.evaluate() in self.v2.evaluate()
+        except:
+            raise SemanticError
 
 class IndexNode(Node):
     def __init__(self, list, index,startWith1):
-        self.list = list.evaluate()
-        self.index = index.evaluate()-startWith1
+        self.list = list
+        self.index = index
+        self.pos = startWith1
 
     def evaluate(self):
-        return self.list[self.index]
+        if (not strictly_int(self.index)):
+            raise SemanticError
+        try:
+            return self.list.evaluate()[self.index.evaluate()-self.pos]
+        except:
+            raise SemanticError
 
 
 class ConcatNode(Node):
     def __init__(self, hd,tl):
-        self.hd=hd.evaluate()
-        self.tl = tl.evaluate()
+        self.hd=hd
+        self.tl = tl
 
     def concat(self):
-        self.tl.insert(0, self.hd)
+        if (not type(self.tl.evaluate()) == list):
+            raise SemanticError
+        else:
+            self.tl.evaluate().insert(0, self.hd.evaluate())
+            return self.tl
 
     def evaluate(self):
-        return self.tl
+        return self.concat()
         #insert head at the beginning of list
 
 
@@ -424,54 +483,13 @@ precedence = (
 )
 
 def p_statements(t):
-    '''statement : assign_statement
+    '''statement :  assign_statement
     |               print_statement
     |               if_statement
     |               while_statement
     |               scope'''
     t[0] = t[1]
 
-# def p_none(t):
-#     'none : '
-#     t[0] = t[1]
-def p_block(t):
-    '''block : block statement
-            | statement
-
-    '''
-    if len(t) == 2:
-        t[0] = [t[1]]
-    else:
-        t[0] = t[1] + [t[2]]
-
-    # print("found block",t[0])
-
-def p_statement_assign(t):
-    'assign_statement : NAME EQUAL expression SEMICOLON'
-    #5 = 4 is a syntax error, cant assign to literal in python
-    # print("variable assignment")
-    t[0] = AssignNode(names,t[1],t[3],False)
-    t[0].evaluate()
-
-def p_list_assign(t):
-    'assign_statement : expression LBRACKET expression RBRACKET EQUAL expression SEMICOLON'
-    # print("list element assignment")
-    if (type(t[1].evaluate())!=list or (not strictly_int(t[3])) ):
-        raise SemanticError
-    t[0] = AssignNode(t[1], t[3], t[6],True)
-    t[0].evaluate()
-
-def p_statement_expr(t):
-    '''print_statement : PRINT LPAREN expression RPAREN SEMICOLON
-                | PRINT LPAREN RPAREN SEMICOLON'''
-
-    if len(t)>5:
-        t[0] = PrintNode(t[3])
-    else:
-        t[0] = PrintNode(StringNode(""))#print an empty line
-    # print("print ",t[3])
-    # t[0].execute()
-    #print node returns nothing
 
 def p_scope(t):
     '''scope : LBRACE RBRACE
@@ -481,7 +499,54 @@ def p_scope(t):
     else:
         t[0] = BlockNode(t[2]) #a list of statements
 
+def p_block(t):
+    '''block : block statement
+            | statement
+            | empty
 
+    '''
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[0] = t[1] + [t[2]]
+
+    # print("found block",t[0])
+
+
+def p_empty(p):
+    'empty :'
+    pass
+
+
+
+def p_statement_assign(t):
+    'assign_statement : NAME EQUAL expression SEMICOLON'
+    #5 = 4 is a syntax error, cant assign to literal in python
+    # print("variable assignment")
+    t[0] = AssignNode(names,t[1],t[3],False)
+    # t[0].evaluate()
+
+def p_list_assign(t):
+    'assign_statement : expression LBRACKET expression RBRACKET EQUAL expression SEMICOLON'
+    # print("list element assignment")
+
+    t[0] = AssignNode(t[1], t[3], t[6],True)
+    # t[0].evaluate()
+
+#print node returns nothing
+
+def p_statement_expr(t):
+    '''print_statement : PRINT LPAREN expression RPAREN SEMICOLON
+                | PRINT LPAREN RPAREN SEMICOLON'''
+
+    if len(t)>5:
+        t[0] = PrintNode(t[3])
+    else:
+        t[0] = PrintNode(StringNode(""))#print an empty line
+
+
+    # t[0].execute()
+    # print("print ",t[3])
     # t[0].execute()
 
 
@@ -490,60 +555,56 @@ def p_if_statement(t):
     '''if_statement : IF LPAREN expression RPAREN scope
                     | IF LPAREN expression RPAREN scope ELSE scope '''
     # print("if statement")
-    condition = t[3].evaluate()
-    if(type(condition)!=bool):
-        raise SemanticError
+
     if(len(t)==6):
         t[0] = IfNode(t[3],t[5],None)
     else:
-        t[0] = IfNode(t[3],t[4],t[7])
+        t[0] = IfNode(t[3],t[5],t[7])
 
     # t[0].execute()
 
 def p_while_statement(t):
     '''while_statement : WHILE LPAREN expression RPAREN scope '''
-    # print("while loop")
-    condition = t[3].evaluate()
-    if (type(condition) != bool):
-        raise SemanticError
-    else:
-        t[0] = LoopNode(t[3],t[5])
+
+    # if (type(condition) != bool):
+    #     raise SemanticError
+    # else:
+    t[0] = LoopNode(t[3],t[5])
 
     # t[0].execute()
 
 
 
-def match_int(t):
-    if (strictly_int(t[1]) and strictly_int(t[3])):
+def match_int(a,b):
+    if (strictly_int(a) and strictly_int(b)):
         return True
     else:
         return False
 
-def match_float(t):
-    if (type(t[1].evaluate()) == float and type(t[3].evaluate()) == float):
+def match_float(a,b):
+    if (type(a.evaluate()) == float and type(b.evaluate()) == float):
         return True
     else:
         return False
 
-def match_nums(t):
-    if(match_int(t)):
+def match_nums(a,b):
+    if(match_int(a,b)):
         return True
-    elif(match_float(t)):
+    elif(match_float(a,b)):
         return True
-    elif (type(t[1].evaluate())==float and strictly_int(t[3])):
+    elif (type(a.evaluate())==float and strictly_int(b)):
         return True
-    elif (strictly_int(t[1]) and type(t[3].evaluate())==float):
+    elif (strictly_int(a) and type(b.evaluate())==float):
         return True
     else:
         return False
 
-def type_match(t):
-    if(len(t)<3):
-        return True
-    if(type(t[1].evaluate())==type(t[3].evaluate())):
+def type_match(a,b):
+
+    if(type(a.evaluate())==type(b.evaluate())):
         return True
     else:
-        return match_nums(t)
+        return match_nums(a,b)
 
 def p_expression_binop(t):
     '''expression : expression PLUS expression
@@ -553,26 +614,8 @@ def p_expression_binop(t):
                   | expression POW expression
                   | expression DIVIDE expression
                   | expression TIMES expression'''
+    t[0] = BopNode(t[2], t[1], t[3])
 
-    if (type_match(t) == False or type(t[1].evaluate()) == tuple or type(t[1].evaluate())==bool):  # does not support tuple addition
-        raise SemanticError
-    if t[2] == '+': #supports strings, and lists
-        t[0] = BopNode(t[2],t[1],t[3])
-    else:
-        op = ['-','*','/','**']
-        if (match_nums(t)):
-            if t[2] in op:
-                t[0] = BopNode(t[2],t[1],t[3])
-            else:
-                if (not match_int(t)):
-                    raise SemanticError
-                elif t[2] == "div":
-                    t[0] = BopNode(t[2],t[1],t[3])
-                elif t[2] == "mod":
-                    t[0] = BopNode(t[2],t[1],t[3])
-
-        else:
-            raise SemanticError
 
 def p_expression_group(t):
     'expression : LPAREN expression RPAREN'
@@ -581,19 +624,12 @@ def p_expression_group(t):
 def p_expression_in(t):
     '''expression : expression IN expression'''
     # print(t[1].evaluate()," in ",t[3].evaluate())
-    if(type(t[3].evaluate())==list):
-        t[0] = InNode(t[2],t[1],t[3])
-        t[0].exec()
-    elif (type(t[3].evaluate())==str and type(t[1].evaluate())==str):
-        t[0] = InNode(t[2],t[1],t[3])
-        t[0].exec()
-    else:
-        raise SemanticError
+    t[0] = InNode(t[2], t[1], t[3])
+
 
 def p_expression_not(t):
     'expression : NOT expression'
-    if (not type(t[2].evaluate()) == bool):  # must be boolean types
-        raise SemanticError
+
         # doesn ot support lists
 
     t[0] = NotopNode(t[2])
@@ -602,10 +638,8 @@ def p_expression_bool(t):
     '''expression : expression AND expression
                   | expression OR expression'''
     #supported only for booleans
-    if(not (type_match(t) and isinstance(t[1].evaluate(),bool) ) ):
-        raise SemanticError
-    else:
-        t[0] = AndORNode(t[2], t[1], t[3])
+
+    t[0] = AndORNode(t[2], t[1], t[3])
 
 def p_expression_compare(t):
     '''expression : expression GREATER expression
@@ -614,18 +648,13 @@ def p_expression_compare(t):
                 | expression SMALLEREQU expression
                 | expression EQUALS expression
                 | expression NEQUALS expression'''
-    if(not type_match(t)):
-        raise SemanticError
-    elif(type(t[1].evaluate())==list or type(t[1].evaluate())==tuple or type(t[1].evaluate())==bool):
-        raise SemanticError
-    else:
-        t[0] = CompareopNode(t[2],t[1],t[3])
+
+    t[0] = CompareopNode(t[2],t[1],t[3])
 
 def p_expression_uminus(t):
     'expression : MINUS expression %prec UMINUS'
 
     t[0] = UminusNumberNode(t[2])
-    t[0].uminus()
 
 
 
@@ -633,9 +662,9 @@ def p_tuple(t):
     '''tuple : LPAREN elements RPAREN
             | LPAREN RPAREN'''
     if(len(t)==3):
-        t[0] = TupleNode(())
+        t[0] = TupleNode(ElementNode())
     else:
-        t[0] = TupleNode(tuple(t[2]))
+        t[0] = TupleNode(ListNode(t[2]))
 
 
 #a list can be empty or contains one or more elements separated by commas
@@ -643,7 +672,7 @@ def p_list(t):
     '''list : LBRACKET elements RBRACKET
             | LBRACKET RBRACKET '''
     if(len(t)==3):
-        t[0] = ListNode([])
+        t[0] = ListNode(ElementNode())  #with empty elements
     else:
         t[0] = ListNode(t[2])
 
@@ -654,37 +683,23 @@ def p_comma_sep_elements(t):
     '''elements : elements COMMA expression
             | expression
     '''
-
     if len(t) == 2:
-        t[0] = [t[1].evaluate()]
+        t[0] = ElementNode(t[1])
     else:
-        t[0] = t[1] + [t[3].evaluate()]
+        t[1].add(t[3])
+        t[0] = t[1]
 
 
 def p_concat(t):
     '''expression : expression CONCAT expression'''
-    if(not type(t[3].evaluate())==list):
-        raise SemanticError
-    else:
-        t[0] = ConcatNode(t[1],t[3])
-        t[0].concat()
+
+    t[0] = ConcatNode(t[1],t[3])
+    # t[0].concat()
 
 def p_index_list(t):
     'expression : expression LBRACKET expression RBRACKET'
-    if(not ( (type(t[1].evaluate())==list or type(t[1].evaluate())==str) and strictly_int(t[3]) ) ):   #list is an expression, the general form
 
-        raise SemanticError
-    try:
-        index = int(t[3].evaluate())
-    except:
-
-        raise SemanticError
-
-    if(index>=len(t[1].evaluate()) or index<-len(t[1].evaluate())):    #-1 is last element, and goes backwards
-
-        raise SemanticError
-    else:
-        t[0] = IndexNode(t[1],t[3],0)
+    t[0] = IndexNode(t[1],t[3],0)
 
         #index is currently not in brackets, but list is
 def strictly_int(val):
@@ -695,16 +710,8 @@ def strictly_int(val):
 #i(tuple)
 def p_index_tuple(t):
     'expression : INDEX expression expression'
-    if(not (isinstance(t[3].evaluate(),tuple) and strictly_int(t[2]) ) ):
-        raise SemanticError
-    try:
-        index = int(t[2].evaluate())
-    except:
-        raise SemanticError
-    if(index>len(t[3].evaluate()) or index<1):
-        raise SemanticError
-    else:
-        t[0] = IndexNode(t[3],t[2],1)  #index starts at 1 in sbml, but 0 in python, adjusted
+
+    t[0] = IndexNode(t[3],t[2],1)  #index starts at 1 in sbml, but 0 in python, adjusted
 
 def p_expression_boolean(t):
     '''expression : BOOLEAN
