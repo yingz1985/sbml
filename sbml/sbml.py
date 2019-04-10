@@ -71,10 +71,13 @@ class NumberNode(Node):
 class NameNode(Node):
     def __init__(self, name):
         self.name = name
-        print(self.name)
 
     def evaluate(self):
-        return names[self.name]
+        if self.name in names:
+            return names[self.name]
+        else:
+            raise SemanticError
+
 
 #below are operations that can be done to nodes
 class PrintNode(Node):
@@ -92,13 +95,48 @@ class PrintNode(Node):
         self.evaluate()
 
 class AssignNode(Node):
-    def __init__(self,name,expression):
-        self.name = name.evaluate()
+    def __init__(self,List,key,expression,boo):
+        if boo:
+            self.List = List.evaluate()
+            self.key = key.evaluate()
+        else:
+            self.List = names
+            self.key = key.name
         self.expression = expression.evaluate()
-        names[self.name] = self.expression
 
+    #isnt applicable for printing
     def evaluate(self):
-        return names[self.name]
+        self.List[self.key] = self.expression
+
+
+    def execute(self):
+        self.evaluate()
+
+class BlockNode(Node):
+    def __init__(self,statements):
+        self.statements = statements
+
+    #isnt applicable for printing
+    def evaluate(self):
+        for statement in self.statements:
+            statement.execute()
+
+    def execute(self):
+        self.evaluate()
+
+class LoopNode(Node):
+    def __init__(self,condition,block):
+        self.condition = condition.evaluate()
+        self.block = block
+
+    #isnt applicable for printings
+    def evaluate(self):
+        while(self.condition):
+            self.block.evaluate()
+
+
+    def execute(self):
+        self.evaluate()
 
 class UminusNumberNode(Node):
     def __init__(self, v):
@@ -213,10 +251,10 @@ class ConcatNode(Node):
 
 
 reserved = {
-    # 'if' : 'IF',
+    'if' : 'IF',
     # 'then' : 'THEN',
-    # 'else' : 'ELSE',
-    # 'while' : 'WHILE',
+    'else' : 'ELSE',
+    'while' : 'WHILE',
     'in' : 'IN',
     'andalso' : 'AND',
     'orelse' : 'OR',
@@ -224,7 +262,7 @@ reserved = {
     'mod' : "MOD",
     'not' : 'NOT',
     'True|False' : 'BOOLEAN',
-    'print' : 'PRINT'
+    'print' : 'PRINT',
 }
 
 tokens = [
@@ -235,10 +273,9 @@ tokens = [
     # 'AND', 'OR','NOT','IN',
     'SMALLER','GREATER','SMALLEREQU','GREATEREQU',
     # 'MOD','INTDIV','BOOLEAN'
-    'CONCAT','INDEX','SEMICOLON','EQUAL',
+    'CONCAT','INDEX','SEMICOLON','EQUAL','LBRACE','RBRACE',
 
 ]+list(reserved.values())#EQUAL taken out, NAME taken out
-
 
 
 t_ignore = " \t"
@@ -254,6 +291,8 @@ t_NEQUALS = r'<>'
 t_POW = r'\*\*'
 t_LPAREN = r'\('
 t_RPAREN = r'\)'
+t_LBRACE = r'\{'
+t_RBRACE = r'\}'
 t_SMALLER = r'<'
 t_GREATER = r'>'
 t_SMALLEREQU = r'<='
@@ -284,7 +323,7 @@ def t_NAME(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
     t.type = reserved.get(t.value, 'NAME')  # Check for reserved words
     if t.type == 'NAME':
-        t.value = NameNode(t)
+        t.value = NameNode(t.value)
     return t
 #
 # def t_IN(t):
@@ -328,11 +367,11 @@ lex.lex()
 # Parsing rules
 
 precedence = (
-
+    ('right','PRINT'),
+    ('right','EQUAL'),
     ('left','OR'),
     ('left','AND'),
     ('right','NOT'),
-    ('left','EQUAL'),
     ('left', 'GREATER', 'GREATEREQU','SMALLER', 'SMALLEREQU','EQUALS','NEQUALS'),
     ('right', 'CONCAT'),
     ('left','IN'),
@@ -343,27 +382,76 @@ precedence = (
     ('nonassoc','LBRACKET','RBRACKET'),
     ('left','INDEX'),
 )
-
-
-def p_name_expr(t):
-    'expression : NAME'
+def p_statements(t):
+    '''statement : assign_statement
+    |               print_statement
+    |               if_statement
+    |               while_statement
+    |               scope'''
     t[0] = t[1]
 
 def p_statement_assign(t):
-    'expression : NAME EQUAL expression'
-    print("name assignment")
-    t[0] = AssignNode(t[1],t[3])
+    'assign_statement : NAME EQUAL expression SEMICOLON'
+    #5 = 4 is a syntax error, cant assign to literal in python
+    t[0] = AssignNode(names,t[1],t[3],False)
+    t[0].evaluate()
+
+def p_list_assign(t):
+    'assign_statement : expression LBRACKET expression RBRACKET EQUAL expression SEMICOLON'
+
+    if (type(t[1].evaluate())!=list or (not strictly_int(t[3])) ):
+        raise SemanticError
+    t[0] = AssignNode(t[1], t[3], t[6],True)
+    t[0].evaluate()
 
 def p_statement_expr(t):
-    '''statement : PRINT LPAREN expression RPAREN SEMICOLON
+    '''print_statement : PRINT LPAREN expression RPAREN SEMICOLON
                 | PRINT LPAREN RPAREN SEMICOLON'''
-    print("printing")
     if len(t)>5:
-        t[0] = PrintNode(t[1])
+        t[0] = PrintNode(t[3])
     else:
         t[0] = PrintNode(StringNode(""))#print an empty line
+
     t[0].execute()
     #print node returns nothing
+
+def p_scope(t):
+    '''scope : LBRACE RBRACE
+            | LBRACE block RBRACE'''
+    print("a block")
+    if len(t)==3:
+        t[0] = BlockNode()
+    else:
+        t[0] = t[3] #a list of statements
+
+def p_block(t):
+    '''block : statement
+                | statement block
+    '''
+
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[0] = t[1] + [t[3]]
+
+def p_if_statement(t):
+    '''if_statement : IF LPAREN expression RPAREN block SEMICOLON
+                    | IF LPAREN expression RPAREN block ELSE block SEMICOLON'''
+    condition = t[3].evaluate()
+    if(type(condition)!=bool):
+        raise SemanticError
+    if(condition):
+        t[0] = t[5]
+    elif(len(t)>6):
+        t[0] = t[7]
+def p_while_statement(t):
+    '''while_statement : WHILE LPAREN expression RPAREN block SEMICOLON'''
+    condition = t[3].evaluate()
+    if (type(condition) != bool):
+        raise SemanticError
+    else:
+        t[0] = LoopNode(t[3],t[5])
+
 
 
 def match_int(t):
@@ -564,7 +652,8 @@ def p_expression_boolean(t):
                 | list
                 | tuple
                 | STRING
-                | NUMBER'''
+                | NUMBER
+                | NAME'''
     t[0] = t[1]
 
 def p_error(t):
@@ -581,42 +670,46 @@ if (len(sys.argv) != 2):
     sys.exit("Usage: python3 sbml.py inputFileName.txt")
 
 fd = open(sys.argv[1], 'r')
+code = ""
+for line in fd:
+    code += line.strip()
+
+try:
+    lex.input(code)
+    while True:
+        token = lex.token()
+        if not token:
+            break
+        # print(token)
+
+    ast = yacc.parse(code)
+    # ast.execute()
+
+except SemanticError:
+    print("SEMANTIC ERROR")
+except SyntaxError:
+    print("SYNTAX ERROR")
+except:
+    pass
 
 # for line in fd:
-#     code += line.strip()
+#     code = line.strip()
+#     if not code:
+#         continue
 #
-# try:
-#     lex.input(code)
-#     while True:
-#         token = lex.token()
-#         if not token: break
-#         #print(token)
+#     # lex.input(code)
+#     # token = lex.token()
+#     # if not token:
+#     #     break
+#     # print(token)
+#     try:
+#         ast = yacc.parse(code)
 #
-#     ast = yacc.parse(code)
-#     ast.execute()
-#
-# except SemanticError:
-#     print("SEMANTIC ERROR")
-# except SyntaxError:
-#     print("SYNTAX ERROR")
-# except:
-#     pass
-
-for line in fd:
-    code = line.strip()
-    # if not code:
-    #     continue
-    # lex.input(code)
-    # token = lex.token()
-    # if not token: break
-    # print(token)
-    try:
-        ast = yacc.parse(code)
-        # ast.execute()
-        #don't always print
-    except SemanticError:
-        print("SEMANTIC ERROR")
-    except SyntaxError:
-        print("SYNTAX ERROR")
-    except:
-        pass
+#         # ast.execute()
+#         #don't always print
+#     except SemanticError:
+#         print("SEMANTIC ERROR")
+#     except SyntaxError:
+#         print("SYNTAX ERROR")
+#     except:
+#         pass
