@@ -3,7 +3,10 @@
 class SemanticError(Exception):
     pass
 
-names = {}
+
+#names = {}
+
+
 class Node:
     def __init__(self):
         print("init node")
@@ -13,6 +16,40 @@ class Node:
 
     def execute(self):
         return 0
+
+
+class Stack():
+    def __init__(self):
+        self.stack = [{}] #initially one dictionary space for main vars
+    def size(self):
+        return len(self.stack)
+    def main(self):
+        return self.stack[0]
+    def pop(self):
+        self.stack.pop()
+
+    def push(self,):
+        self.stack.append({})#add new dictionary stack space for function
+
+    def current(self):
+        return self.stack[-1]   #return last dictionary, current space
+    #uhh probably don't need peek for our purposes, will see later
+    def assign(self,name,value):
+        self.current()[name] = value
+
+    #semantic error if args length and vals length do not match
+    #assign local variables
+    def make_new_stack_frame(self,args,vals):
+        self.push()
+        current = self.current()    #current stack frame
+        # print("new frame",len(args),len(vals),args,vals)
+        if len(args)==len(vals):
+            for i in range(len(args)):
+                current[args[i].var()] = vals[i]
+        else:
+            raise SemanticError
+
+stack = Stack()
 
 class BooleanNode(Node):
     def __init__(self, v):
@@ -100,6 +137,8 @@ class NameNode(Node):
     def var(self):
         return self.name
     def evaluate(self):
+        names = stack.current()
+        # print("name exec",self.name,names)
         if self.name in names:
             return names[self.name]
         else:
@@ -109,6 +148,61 @@ class NameNode(Node):
     def execute(self):
         return self.evaluate()
 
+#FUN NAME LPAREN args RPAREN EQUAL scope expression SEMICOLON'
+class FunctionNode(Node):
+    def __init__(self, name,args,block,output):
+        global stack
+        self.name = name
+        self.args = args
+        self.block = block
+        self.output = output
+        self.self_calling()   #can also call on the function itself from main
+
+    def self_calling(self):
+        # print("self calling")
+        stack.current()[self.name.var()] = self
+
+    def evaluate(self,vals):
+        #vals is in the form of element node, expressions sep by comma
+        stack.make_new_stack_frame(self.args,vals.evaluate())
+        #create new stack space and populate it with arguments
+        self.self_calling()
+        print("exec block",self.block,stack.current())
+        self.block.execute()
+        # print(stack.current(),"stack after exec",stack.size())
+        # print("output",self.output.evaluate())
+
+        # if self.output.var() in stack.current():
+        #     output = stack.current()[self.output.var()]
+        # else:
+        #     raise SemanticError
+        output = self.output.evaluate()
+        stack.pop()
+        return output
+
+    def execute(self,vals):
+        return self.evaluate(vals)
+
+class CallFuncNode(Node):
+    def __init__(self,func,args):
+        self.function = func
+        self.args = args
+
+    def evaluate(self):
+        # print("calling function",self.function.var())
+        current_stack = stack.main()
+
+        if self.function.var() in current_stack:
+            func = current_stack[self.function.var()]
+            # print(func)
+            return func.execute(self.args)
+        else:
+            raise SemanticError
+
+
+    def execute(self):
+
+        return self.evaluate()
 
 #below are operations that can be done to nodes
 class PrintNode(Node):
@@ -128,13 +222,13 @@ class PrintNode(Node):
 
 class AssignNode(Node):
     def __init__(self,List,key,expression,boo):
-        global names
+        global stack
         self.boo = boo
         if self.boo:
             self.List = List
             self.key = key
         else:
-            self.List = names
+
             self.key = key.var()
         self.expression = expression
 
@@ -144,8 +238,10 @@ class AssignNode(Node):
         if self.boo==True:
             L = self.List.evaluate()
             K = self.key.evaluate()
+            if(not strictly_int(self.key)):
+                raise SemanticError
         else:
-            L = self.List
+            L = stack.current()
             K = self.key
 
         # self.expression = self.expression.evaluate()
@@ -153,6 +249,8 @@ class AssignNode(Node):
         try:
 
             L[K] = self.expression.evaluate()
+
+
         except:
             raise SemanticError
 
@@ -170,7 +268,7 @@ class BlockNode(Node):
     def evaluate(self):
 
         for statement in self.st:
-
+            print(statement)
             statement.execute()
 
 
@@ -343,6 +441,8 @@ class InNode(Node):
             return self.v1.evaluate() in self.v2.evaluate()
         except:
             raise SemanticError
+    def execute(self):
+        return self.evaluate()
 
 class IndexNode(Node):
     def __init__(self, list, index,startWith1):
@@ -357,6 +457,8 @@ class IndexNode(Node):
             return self.list.evaluate()[self.index.evaluate()-self.pos]
         except:
             raise SemanticError
+    def execute(self):
+        return self.execute()
 
 
 class ConcatNode(Node):
@@ -366,14 +468,22 @@ class ConcatNode(Node):
 
     def concat(self):
         if (not type(self.tl.evaluate()) == list):
+
             raise SemanticError
         else:
-            self.tl.evaluate().insert(0, self.hd.evaluate())
-            return self.tl
+
+            # self.tl.evaluate().insert(0, self.hd.evaluate())
+            #
+            m = [self.hd.evaluate()] + self.tl.evaluate()
+
+            return m
 
     def evaluate(self):
         return self.concat()
         #insert head at the beginning of list
+
+    def execute(self):
+        return self.evaluate()
 
 
 reserved = {
@@ -389,6 +499,7 @@ reserved = {
     'not' : 'NOT',
     'True|False' : 'BOOLEAN',
     'print' : 'PRINT',
+    'fun'   : 'FUN',
 }
 
 tokens = [
@@ -508,14 +619,50 @@ precedence = (
     ('nonassoc','LBRACKET','RBRACKET'),
     ('left','INDEX'),
 )
-
 def p_program(t):
-    ''' program : LBRACE block RBRACE
+    '''program : main
+                | function_list main'''
+    if len(t)==2:
+        t[0] = t[1]
+    else:
+        t[0] = t[2]
+
+def p_function(t):
+    'function : FUN NAME LPAREN args RPAREN EQUAL scope expression SEMICOLON'
+    t[0] = FunctionNode(t[2],t[4],t[7],t[8])
+
+# def p_function1(t):
+#     'function : FUN NAME LPAREN RPAREN EQUAL scope expression SEMICOLON'
+#     t[0] = FunctionNode(t[2], [], t[7], t[8])
+#     #empty arg function
+
+def p_main_stack(t):
+    ''' main : LBRACE block RBRACE
                 | LBRACE RBRACE'''
     if len(t)==3:
         t[0] = BlockNode([])
     else:
         t[0] = BlockNode(t[2]) #a list of statements
+
+def p_function_defs(t):
+    '''function_list : function_list function
+                | function'''
+    if len(t)==2:
+        t[0] = [t[1]]
+    else:
+        t[0] = t[1] + [t[2]]
+
+
+
+def p_arg_list(t):
+    '''args : args COMMA NAME
+                    | NAME
+            '''
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[0] = t[1]+[t[3]]
+
 
 def p_statements(t):
     '''statement :  assign_statement
@@ -525,6 +672,17 @@ def p_statements(t):
     |               scope
     |               expression SEMICOLON'''
     t[0] = t[1]
+
+
+def p_func_call(t):
+    'expression : NAME LPAREN elements RPAREN '
+
+    t[0] = CallFuncNode(t[1],t[3])
+
+# def p_func_call1(t):
+#     'expression : NAME LPAREN RPAREN '
+#
+#     t[0] = CallFuncNode(t[1],ElementNode(None))
 
 # def p_state(t):
 #     'statement : expression SEMICOLON'
@@ -539,6 +697,7 @@ def p_scope(t):
         t[0] = BlockNode([])
     else:
         t[0] = BlockNode(t[2]) #a list of statements
+
 
 def p_block(t):
     '''block : block statement
@@ -570,12 +729,11 @@ def p_statement_assign(t):
     'assign_statement : NAME EQUAL expression SEMICOLON'
     #5 = 4 is a syntax error, cant assign to literal in python
 
-    t[0] = AssignNode(names,t[1],t[3],False)
+    t[0] = AssignNode(None,t[1],t[3],False)
     # t[0].evaluate()
 
 def p_list_assign(t):
     'assign_statement : expression LBRACKET expression RBRACKET EQUAL expression SEMICOLON'
-
     t[0] = AssignNode(t[1], t[3], t[6],True)
     # t[0].evaluate()
 
@@ -735,7 +893,6 @@ def p_comma_sep_elements(t):
 
 def p_concat(t):
     '''expression : expression CONCAT expression'''
-
     t[0] = ConcatNode(t[1],t[3])
     # t[0].concat()
 
@@ -771,7 +928,7 @@ def p_error(t):
 
 import ply.yacc as yacc
 
-yacc.yacc(debug=0)
+yacc.yacc(debug=0)#debug=0
 
 import sys
 
@@ -794,6 +951,7 @@ try:
     #     print(token)
 
     ast = yacc.parse(code)
+
     # if not isinstance(ast,BlockNode):
     #     raise SyntaxError
 
@@ -801,7 +959,7 @@ try:
 
 except SemanticError:
     print("SEMANTIC ERROR")
-except SyntaxError as e :
+except SyntaxError:
     print("SYNTAX ERROR")
 # except:
 #     print("exception")
