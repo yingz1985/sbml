@@ -42,11 +42,12 @@ class Stack():
     def make_new_stack_frame(self,args,vals):
         self.push()
         current = self.current()    #current stack frame
-        # print("new frame",len(args),len(vals),args,vals)
+
         if len(args)==len(vals):
             for i in range(len(args)):
                 current[args[i].var()] = vals[i]
         else:
+
             raise SemanticError
 
 stack = Stack()
@@ -138,7 +139,7 @@ class NameNode(Node):
         return self.name
     def evaluate(self):
         names = stack.current()
-        # print("name exec",self.name,names)
+
         if self.name in names:
             return names[self.name]
         else:
@@ -159,23 +160,24 @@ class FunctionNode(Node):
         self.self_calling()   #can also call on the function itself from main
 
     def self_calling(self):
-        # print("self calling")
+
         stack.current()[self.name.var()] = self
 
     def evaluate(self,vals):
         #vals is in the form of element node, expressions sep by comma
         stack.make_new_stack_frame(self.args,vals.evaluate())
         #create new stack space and populate it with arguments
-        self.self_calling()
-        print("exec block",self.block,stack.current())
+        # self.self_calling()
+
+
         self.block.execute()
-        # print(stack.current(),"stack after exec",stack.size())
-        # print("output",self.output.evaluate())
+
 
         # if self.output.var() in stack.current():
         #     output = stack.current()[self.output.var()]
         # else:
         #     raise SemanticError
+
         output = self.output.evaluate()
         stack.pop()
         return output
@@ -189,14 +191,13 @@ class CallFuncNode(Node):
         self.args = args
 
     def evaluate(self):
-        # print("calling function",self.function.var())
-        current_stack = stack.main()
 
+        current_stack = stack.main()
         if self.function.var() in current_stack:
             func = current_stack[self.function.var()]
-            # print(func)
             return func.execute(self.args)
         else:
+
             raise SemanticError
 
 
@@ -239,6 +240,7 @@ class AssignNode(Node):
             L = self.List.evaluate()
             K = self.key.evaluate()
             if(not strictly_int(self.key)):
+
                 raise SemanticError
         else:
             L = stack.current()
@@ -268,7 +270,7 @@ class BlockNode(Node):
     def evaluate(self):
 
         for statement in self.st:
-            print(statement)
+
             statement.execute()
 
 
@@ -336,6 +338,7 @@ class BopNode(Node):
         self.v1 = v1
         self.v2 = v2
         self.op = op
+        print("op",op)
 
     def evaluate(self):
         try:
@@ -345,8 +348,10 @@ class BopNode(Node):
             c = type(a.evaluate())
 
             if (not type_match(a, b)):
+
                 raise SemanticError
             elif (c==tuple or c==bool):
+
                 raise SemanticError
             if (self.op == '+'):
                 return self.v1.evaluate() + self.v2.evaluate()
@@ -397,6 +402,7 @@ class CompareopNode(Node):
                 elif (self.op == '<>'):
                     return not(self.v1.evaluate() == self.v2.evaluate())
             except:
+
                 raise SemanticError
 
     def execute(self):
@@ -420,12 +426,16 @@ class AndORNode(Node):
         self.v2 = v2
         self.op = op
     def evaluate(self):
-        if (not (type_match(self.v1,self.v2) and isinstance(self.v1.evaluate(), bool))):
+
+        x = self.v1.evaluate()
+        y = self.v2.evaluate()
+
+        if (not (type_match(self.v1,self.v2) and isinstance(x, bool))):
             raise SemanticError
         if (self.op == 'andalso'):
-            return self.v1.evaluate() and self.v2.evaluate()
+            return x and y
         elif (self.op == 'orelse'):
-            return self.v1.evaluate() or self.v2.evaluate()
+            return x or y
 
     def execute(self):
         return self.evaluate()
@@ -446,9 +456,12 @@ class InNode(Node):
 
 class IndexNode(Node):
     def __init__(self, list, index,startWith1):
+        print("list",list.var())
         self.list = list
         self.index = index
+        print("index",index)
         self.pos = startWith1
+
 
     def evaluate(self):
         if (not strictly_int(self.index)):
@@ -599,7 +612,7 @@ def t_error(t):
 # Build the lexer
 import ply.lex as lex
 
-lex.lex(debug=0)
+lex.lex()
 
 # Parsing rules
 
@@ -616,6 +629,7 @@ precedence = (
     ('left', 'TIMES', 'DIVIDE','MOD','INTDIV'),
     ('right','UMINUS'),
     ('right','POW'),
+    #('nonassoc','LPAREN','RPAREN'),
     ('nonassoc','LBRACKET','RBRACKET'),
     ('left','INDEX'),
 )
@@ -674,10 +688,12 @@ def p_statements(t):
     t[0] = t[1]
 
 
+
 def p_func_call(t):
     'expression : NAME LPAREN elements RPAREN '
 
     t[0] = CallFuncNode(t[1],t[3])
+
 
 # def p_func_call1(t):
 #     'expression : NAME LPAREN RPAREN '
@@ -754,7 +770,7 @@ def p_statement_expr(t):
 def p_if_statement(t):
     '''if_statement : IF LPAREN expression RPAREN scope
                     | IF LPAREN expression RPAREN scope ELSE scope '''
-    # print("if statement")
+
 
     if(len(t)==6):
         t[0] = IfNode(t[3],t[5],None)
@@ -824,7 +840,7 @@ def p_expression_group(t):
 
 def p_expression_in(t):
     '''expression : expression IN expression'''
-    # print(t[1].evaluate()," in ",t[3].evaluate())
+
     t[0] = InNode(t[2], t[1], t[3])
 
 
@@ -909,26 +925,33 @@ def strictly_int(val):
         return False
 #i(tuple)
 def p_index_tuple(t):
-    'expression : INDEX expression expression'
+    'expression : INDEX expression tuple'
 
     t[0] = IndexNode(t[3],t[2],1)  #index starts at 1 in sbml, but 0 in python, adjusted
 
+
+def p_index_exp(t):
+    'expression : INDEX expression LPAREN expression RPAREN'
+    t[0] = IndexNode(t[4], t[2], 1)
+
+
 def p_expression_boolean(t):
     '''expression : BOOLEAN
+                | NAME
                 | list
                 | tuple
                 | STRING
-                | NUMBER
-                | NAME'''
+                | NUMBER'''
     t[0] = t[1]
 
 def p_error(t):
+    print(t,"2")
     raise SyntaxError
 
 
 import ply.yacc as yacc
 
-yacc.yacc(debug=0)#debug=0
+yacc.yacc()#debug=0
 
 import sys
 
@@ -943,17 +966,16 @@ for line in fd:
 # print(code)
 
 try:
-    # lex.input(code)
-    # while True:
-    #     token = lex.token()
-    #     if not token:
-    #         break
-    #     print(token)
+    lex.input(code)
+    while True:
+        token = lex.token()
+        if not token:
+            break
+        print(token)
 
     ast = yacc.parse(code)
 
-    # if not isinstance(ast,BlockNode):
-    #     raise SyntaxError
+
 
     ast.execute()
 
