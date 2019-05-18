@@ -1,0 +1,5 @@
+{
+    print('printed');
+    5 div 0;
+    print("not printed");
+}

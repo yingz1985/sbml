@@ -1,0 +1,24 @@
+fun mod_string(x,len) =
+{
+
+    if(len>0)
+    {
+        if(len mod 2 ==1 )
+        {
+            output = "1 "+x[len-1]+mod_string(x,len-1);
+        }
+        else
+        {
+            output = "2 "+x[len-1]+mod_string(x,len-1);
+        }
+    }
+    else
+    {
+        output = "";
+    }
+}output;
+
+{
+
+    print(mod_string("helloworld",10));
+}

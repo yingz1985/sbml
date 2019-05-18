@@ -1,0 +1,38 @@
+fun indivisible(x,y) =
+{
+    if (x div 2 == y)
+    {
+        result = True;
+    }
+    else
+    {
+        if (x mod y == 0)
+        {
+         result =  False;
+        }
+        else
+        {
+         result = indivisible(x,y+1);
+        }
+    }
+
+}result;
+
+fun isPrime(x) =
+{
+    if (x < 4)
+    {
+        p = True;
+    }
+    else
+    {
+        p = indivisible(x,2);
+    }
+}p;
+
+
+{
+
+    print(isPrime(133));
+
+}

@@ -1,0 +1,8 @@
+fun add (a,b) = {
+    output = a + b;
+    if (b-1 <> 0){
+        output = output + add(a,b-1);
+    }
+} output;
+
+{print(add(1,2));}

@@ -1,0 +1,1 @@
+((2.5 * 2 == 5) andalso (3.5 * 2 == 7)) orelse false;

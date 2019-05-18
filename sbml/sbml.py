@@ -234,7 +234,6 @@ class AssignNode(Node):
         self.expression = expression
 
 
-    #isnt applicable for printing
     def evaluate(self):
         if self.boo==True:
             L = self.List.evaluate()
@@ -266,7 +265,7 @@ class BlockNode(Node):
     def __init__(self,s):
         self.st = s
 
-    #isnt applicable for printing
+
     def evaluate(self):
 
         for statement in self.st:
@@ -285,7 +284,7 @@ class IfNode(Node):
         self.if_statement = if_statement
         self.else_statement = else_statement
 
-    #isnt applicable for printings
+
     def evaluate(self):
 
         if (type(self.condition.evaluate()) != bool):
@@ -305,7 +304,7 @@ class LoopNode(Node):
         self.condition = condition
         self.block = block
 
-    #isnt applicable for printings
+
     def evaluate(self):
         if (type(self.condition.evaluate()) != bool):
             raise SemanticError
@@ -338,7 +337,6 @@ class BopNode(Node):
         self.v1 = v1
         self.v2 = v2
         self.op = op
-        print("op",op)
 
     def evaluate(self):
         try:
@@ -456,10 +454,8 @@ class InNode(Node):
 
 class IndexNode(Node):
     def __init__(self, list, index,startWith1):
-        print("list",list.var())
         self.list = list
         self.index = index
-        print("index",index)
         self.pos = startWith1
 
 
@@ -612,7 +608,7 @@ def t_error(t):
 # Build the lexer
 import ply.lex as lex
 
-lex.lex()
+lex.lex(debug=0)
 
 # Parsing rules
 
@@ -629,7 +625,7 @@ precedence = (
     ('left', 'TIMES', 'DIVIDE','MOD','INTDIV'),
     ('right','UMINUS'),
     ('right','POW'),
-    #('nonassoc','LPAREN','RPAREN'),
+    ('nonassoc','LPAREN','RPAREN'),
     ('nonassoc','LBRACKET','RBRACKET'),
     ('left','INDEX'),
 )
@@ -925,14 +921,14 @@ def strictly_int(val):
         return False
 #i(tuple)
 def p_index_tuple(t):
-    'expression : INDEX expression tuple'
+    'expression : INDEX expression expression'
 
     t[0] = IndexNode(t[3],t[2],1)  #index starts at 1 in sbml, but 0 in python, adjusted
 
-
-def p_index_exp(t):
-    'expression : INDEX expression LPAREN expression RPAREN'
-    t[0] = IndexNode(t[4], t[2], 1)
+#
+# def p_index_exp(t):
+#     'expression : INDEX expression LPAREN expression RPAREN'
+#     t[0] = IndexNode(t[4], t[2], 1)
 
 
 def p_expression_boolean(t):
@@ -945,13 +941,12 @@ def p_expression_boolean(t):
     t[0] = t[1]
 
 def p_error(t):
-    print(t,"2")
     raise SyntaxError
 
 
 import ply.yacc as yacc
 
-yacc.yacc()#debug=0
+yacc.yacc(debug=0)#debug=0
 
 import sys
 
@@ -966,12 +961,12 @@ for line in fd:
 # print(code)
 
 try:
-    lex.input(code)
-    while True:
-        token = lex.token()
-        if not token:
-            break
-        print(token)
+    # lex.input(code)
+    # while True:
+    #     token = lex.token()
+    #     if not token:
+    #         break
+    #     print(token)
 
     ast = yacc.parse(code)
 

@@ -1,0 +1,8 @@
+{
+    a = True;
+    if ( a andalso a orelse not a)
+    {
+        b = a;
+    }
+    print(b);
+}

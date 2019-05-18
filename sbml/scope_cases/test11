@@ -1,0 +1,18 @@
+{
+    my_movies = [['How I Met Your Mother', 'Friends', 'Silicon Valley'],
+    ['Family Guy', 'South Park', 'Rick and Morty'],
+    ['Breaking Bad', 'Game of Thrones', 'The Wire']];
+
+    index = 0;
+    while (index <3)
+    {
+        inner = 0;
+        while(inner<3)
+        {
+            string = "the title " + my_movies[index][inner];
+            print(string);
+            inner = inner+1;
+        }
+        index = index+1;
+    }
+}

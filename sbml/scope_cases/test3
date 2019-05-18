@@ -1,0 +1,19 @@
+{
+    size = 7;
+    m = (2 * size) - 2;
+    i = 0;
+    while(i<m)
+    {
+
+        m = m - 1 ;
+        j = 0;
+        string = "";
+        while (j<i+1)
+        {
+            string = string + "* ";
+            j = j + 1;
+        }
+        print(string);
+        i = i + 1;
+    }
+}

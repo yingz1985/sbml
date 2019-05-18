@@ -1,0 +1,1 @@
+("" in "" orelse ' ' in "" ) andalso 'abcd' <> "efgh" andalso 'random string' > 'another random string';

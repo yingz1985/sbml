@@ -1,0 +1,28 @@
+{
+    print("this test case has a lot of expressions but they don't do anything");
+    1+1;
+    True;
+    1>2;
+    10 mod 3;
+    10**2;
+    "hello"+"";
+    [1,2][0];
+    [1,2]+[0,1];
+    x = 3;
+    x>5;
+    3;
+    "hello";
+    x<>4;
+    []+[];
+    9982.222;
+    {
+        5 + 12;
+    }
+    "Hello" + " " + "SBML.";
+    [[1], 2, 3][0][0] + 40;
+    #1+1-1(1,2,3);
+    #2-1(1,2,3);
+    -(1**2);
+    True;
+
+}

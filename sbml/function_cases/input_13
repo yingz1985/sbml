@@ -1,0 +1,20 @@
+fun add_list (x,y) =
+{
+    if(y<4 andalso True)
+    {
+        output = x+[y]+add_list(x,y+1);
+    }
+    else
+    {
+        output = [];
+    }
+}output;
+
+
+{
+
+    x = [1,2,3,4];
+    y = 0;
+    print(add_list(x,y));
+
+}

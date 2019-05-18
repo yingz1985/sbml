@@ -1,0 +1,12 @@
+fun add (a,b) = {
+    output = a + b;
+    if (b-1 <> 0){
+        output = output + nothing(a);
+    }
+} output;
+
+fun nothing(a) = {
+    output = a;
+} output;
+
+{print(add(1,2));}

@@ -1,0 +1,18 @@
+fun TEST(input) = {
+	
+	x = 1;
+} x;
+
+{
+	{ 
+		x = 5;
+	}
+	print(x);
+	{
+		print(x);
+	}
+
+	y = TEST(5);
+	print(x);
+
+}

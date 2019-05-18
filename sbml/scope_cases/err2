@@ -1,0 +1,8 @@
+{
+    if()
+    {}
+    else
+    {
+        print("else without if");
+    }
+}

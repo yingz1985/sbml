@@ -1,0 +1,15 @@
+fun factorial(n) = {
+    if(n <1){
+        output = 1;
+    }else{
+        output = n * factorial(n - 1);
+    }
+} output;
+
+{
+    print(factorial(3));
+    a = [1,2,3];
+    b = [2,3,4];
+    a[0] = b[0];
+    print(a);
+}

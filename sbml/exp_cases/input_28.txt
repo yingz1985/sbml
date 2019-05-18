@@ -1,0 +1,1 @@
+(("abc"[1] == "cde"[2] orelse True) andalso (False orelse True)) andalso (True orelse False);

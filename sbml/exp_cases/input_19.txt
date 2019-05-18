@@ -1,0 +1,1 @@
+"a" < "b" andalso 'a' in "abc" andalso "a" + "b" + 'c' in 'a' + "b" + 'c' andalso not 'd' in ("abc" + ("def"[1])) andalso "a" + "b" < 'b' andalso 'abc' <> "def" andalso "test" == 'test' andalso "test1" >= 'test' andalso 'test'[0] <= 't';

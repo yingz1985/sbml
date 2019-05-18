@@ -1,0 +1,28 @@
+fun is_older(x,y,i) =
+{
+    if (i<5)
+    {
+
+        if (#i(x) < #i(y))
+        {
+            output = True;
+        }
+        else
+        {
+            output = is_older(x,y,i+1);
+        }
+    }
+    else
+    {
+        output = False;
+    }
+
+}output;
+
+{
+
+    x = (30,50,77,21,0);
+    print( (x));
+    y  = (20,40,50,13,28);
+    print( is_older( x,y,0 ) );
+}

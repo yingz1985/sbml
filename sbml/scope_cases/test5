@@ -1,0 +1,8 @@
+{
+    b = True;
+    if (b)
+    {
+        print ('b is True');
+    }
+
+}
